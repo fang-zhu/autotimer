@@ -1,0 +1,31 @@
+task_name: "GPT自动任务"
+chat_url: "https://chatgpt.com/c/REPLACE_WITH_YOUR_CONVERSATION_ID"
+start_time: "2026-09-08 08:30:00"
+start_immediately: false
+log_dir: "logs"
+browser:
+  mode: cdp
+  channel: msedge
+  cdp_url: "http://127.0.0.1:9222"
+  headless: false
+  use_persistent_profile: true
+  profile_dir: "browser_data"
+settings:
+  response_timeout_seconds: 1800
+  stable_wait_seconds: 5
+  retry_count: 3
+  retry_interval_seconds: 10
+  send_verification_timeout_seconds: 30
+  login_timeout_seconds: 900
+  delay_after_response_seconds: 5
+  continue_on_error: false
+steps:
+  - id: 1
+    name: "第一轮分析"
+    prompt_file: "prompts/01.txt"
+  - id: 2
+    name: "进一步分析"
+    prompt_file: "prompts/02.txt"
+  - id: 3
+    name: "最终整理"
+    prompt_file: "prompts/03.txt"

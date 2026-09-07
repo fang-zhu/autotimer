@@ -1,0 +1,13 @@
+.venv/
+__pycache__/
+*.pyc
+browser_data/
+logs/
+.browser-cache/
+.download-temp/
+.task.lock
+backups/
+*.yaml.bak
+config.yaml
+config.yaml.tmp
+.publish/

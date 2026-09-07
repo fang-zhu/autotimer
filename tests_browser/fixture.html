@@ -1,0 +1,61 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Local ChatGPT automation test fixture</title>
+<main>
+  <div id="history"></div>
+  <div id="prompt-textarea" role="textbox" contenteditable="true" style="border:1px solid #888; min-height:40px"></div>
+  <button data-testid="send-button" aria-label="Send prompt">Send</button>
+  <button data-testid="stop-button" hidden>Stop generating</button>
+  <button data-testid="model-switcher-dropdown-button">Fixture model</button>
+</main>
+<script>
+const editor = document.querySelector('[contenteditable]');
+const send = document.querySelector('[data-testid="send-button"]');
+const stop = document.querySelector('[data-testid="stop-button"]');
+const historyNode = document.querySelector('#history');
+window.clicks = Number(localStorage.getItem('clicks') || 0);
+window.mode = 'normal';
+window.fallback = false;
+function save() {localStorage.setItem('history', historyNode.innerHTML); localStorage.setItem('clicks', window.clicks);}
+historyNode.innerHTML = localStorage.getItem('history') || '<article data-testid="conversation-turn-0"><div data-message-author-role="user">old</div></article><article data-testid="conversation-turn-1"><div data-message-author-role="assistant">old answer</div><button data-testid="copy-turn-action-button">Copy</button></article>';
+send.onclick = () => {
+  window.clicks++;
+  const currentEditor = document.querySelector('[contenteditable]');
+  const prompt = currentEditor.innerText;
+  const user = document.createElement('article');
+  user.dataset.testid = 'conversation-turn-' + (window.clicks*2);
+  const text = document.createElement('div');
+  if (window.fallback) text.dataset.testid = 'user-message'; else text.dataset.messageAuthorRole = 'user';
+  text.innerText = prompt;
+  user.append(text); historyNode.append(user);
+  currentEditor.innerText = ''; stop.hidden = false;
+  const article = document.createElement('article');
+  article.dataset.testid = 'conversation-turn-' + (window.clicks*2+1);
+  const answer = document.createElement('div');
+  if (window.fallback) answer.dataset.testid = 'assistant-message'; else answer.dataset.messageAuthorRole = 'assistant';
+  answer.innerText = 'partial'; article.append(answer); historyNode.append(article);
+  save();
+  if (window.mode === 'never') return;
+  if (window.mode === 'pause') stop.hidden = true; // A silent pause without final action buttons.
+  setTimeout(() => {
+    answer.innerText = 'Final answer for: ' + prompt;
+    stop.hidden = true;
+    const copy = document.createElement('button');
+    if (window.fallback) copy.setAttribute('aria-label', 'Copy response');
+    else copy.dataset.testid = 'copy-turn-action-button';
+    copy.innerText = 'Copy'; article.append(copy); save();
+  }, window.mode === 'pause' ? 2200 : 250);
+};
+window.useFallbacks = () => {
+  window.fallback = true;
+  editor.removeAttribute('id');
+  send.removeAttribute('data-testid');
+  stop.removeAttribute('data-testid'); stop.setAttribute('aria-label', 'Stop generating');
+  document.querySelectorAll('[data-message-author-role]').forEach(e=>{
+    e.dataset.testid = e.dataset.messageAuthorRole + '-message'; e.removeAttribute('data-message-author-role');
+  });
+  document.querySelectorAll('[data-testid="copy-turn-action-button"]').forEach(e=>{
+    e.removeAttribute('data-testid'); e.setAttribute('aria-label', 'Copy response');
+  });
+};
+</script>
