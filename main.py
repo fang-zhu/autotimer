@@ -31,7 +31,7 @@ def recovery_choice(config, mode: str):
     if choice == '1':
         return path
     if choice == '2':
-        if not sys.stdin.isatty() or input('从头执行会再次发送已完成提示词。确认请输入 RESTART：').strip() != 'RESTART':
+        if not sys.stdin.isatty() or input('从头执行会再次发送已完成提示词。确认继续？[y/N]：').strip().lower() not in {'y', 'yes', '是'}:
             raise ValueError('未确认从头执行，未改变断点')
         data.update(status='ABANDONED', abandoned_at=timestamp())
         # Use the same durable writer without replacing existing step records.

@@ -81,3 +81,28 @@ class WindowTests(unittest.TestCase):
         with patch('app.gui.messagebox.showerror') as error:
             self.assertIsNone(self.window.save(silent=True))
         self.assertIn('发生变化', error.call_args.args[1])
+
+    def test_mouse_busy_blocks_chat_start(self):
+        self.window.mouse_panel.busy = True
+        with patch.object(self.window.controller, 'start') as start:
+            self.window.start()
+        start.assert_not_called()
+        self.window.mouse_panel.busy = False
+
+    def test_restart_uses_click_confirmation_without_text_input(self):
+        from app.state_manager import StateManager
+        config = self.window.config
+        status = StateManager(config.log_dir/'old'/'status.json', config)
+        with patch('app.gui.messagebox.askyesnocancel', return_value=False), patch('app.gui.messagebox.askyesno', return_value=True) as confirmation, patch.object(self.window.controller, 'start') as start:
+            self.window.start()
+        confirmation.assert_called_once()
+        self.assertTrue(start.call_args.args[2])
+        self.assertEqual(start.call_args.args[1], status.path)
+        self.window._set_active(False)
+
+    def test_declining_restart_confirmation_does_not_start(self):
+        from app.state_manager import StateManager
+        StateManager(self.window.config.log_dir/'old'/'status.json', self.window.config)
+        with patch('app.gui.messagebox.askyesnocancel', return_value=False), patch('app.gui.messagebox.askyesno', return_value=False), patch.object(self.window.controller, 'start') as start:
+            self.window.start()
+        start.assert_not_called()

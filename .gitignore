@@ -11,3 +11,4 @@ backups/
 config.yaml
 config.yaml.tmp
 .publish/
+recordings/

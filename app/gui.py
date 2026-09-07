@@ -7,7 +7,7 @@ from copy import deepcopy
 from dataclasses import asdict
 from datetime import datetime
 from pathlib import Path
-from tkinter import ttk, messagebox, filedialog, simpledialog
+from tkinter import ttk, messagebox, filedialog
 from tkinter.scrolledtext import ScrolledText
 from .config import Config, parse_config
 from .gui_config import PromptDraft, read_draft, save_draft
@@ -15,6 +15,7 @@ from .gui_controller import TaskController
 from .state_manager import unfinished
 from .prompt_import import split_prompts
 from .browser_launcher import open_connectable_browser
+from .mouse_panel import MousePanel
 
 STATUS_NAMES = {'WAITING': '等待', 'SENDING': '发送 / 核对', 'WAITING_RESPONSE': '等待回答',
                 'COMPLETED': '已完成', 'FAILED': '失败', 'PAUSED': '已暂停',
@@ -97,6 +98,7 @@ class AutomationWindow:
 
     def _on_destroy(self, event) -> None:
         if event.widget is self.root:
+            self.mouse_panel.shutdown()
             self._closed = True
             for token in self._timers:
                 self.root.after_cancel(token)
@@ -158,6 +160,8 @@ class AutomationWindow:
         self._build_prompts(prompts_tab)
         self._build_browser(browser_tab)
         self._build_settings(settings_tab)
+        self.mouse_panel = MousePanel(notebook, self.root, self.path.parent/'recordings', self._mouse_busy, lambda: self.active)
+        notebook.add(self.mouse_panel, text='鼠标录制')
         status = ttk.Frame(shell)
         status.grid(row=4, column=0, sticky='ew', pady=(12, 5))
         status.columnconfigure(0, weight=1)
@@ -265,7 +269,7 @@ class AutomationWindow:
                   style='Muted.TLabel', wraplength=860, justify='left').grid(row=4, column=0, columnspan=2, sticky='nw')
 
     def open_browser(self) -> None:
-        if self.active:
+        if self.active or self.mouse_panel.busy:
             return
         try:
             config = parse_config(self.draft_mapping(), self.path)
@@ -536,7 +540,7 @@ class AutomationWindow:
             messagebox.showerror('读取失败', str(exc), parent=self.root)
 
     def start(self) -> None:
-        if self.active:
+        if self.active or self.mouse_panel.busy:
             return
         config = self.save(silent=True)
         if config is None:
@@ -557,8 +561,7 @@ class AutomationWindow:
                     if data['fingerprint'] != config.fingerprint:
                         raise ValueError('提示词或任务配置已变化，不能套用旧断点。请还原配置后恢复，或明确选择从头执行。')
                 else:
-                    token = simpledialog.askstring('确认从头执行', '会重新发送全部提示词，包含已完成的步骤。\n确需重跑请输入 RESTART：', parent=self.root)
-                    if token != 'RESTART':
+                    if not messagebox.askyesno('确认从头执行', '会重新发送全部提示词，包含已完成的步骤。\n确定从头重新执行吗？', parent=self.root):
                         return
                     restart = True
             self.state_data = {}
@@ -579,6 +582,13 @@ class AutomationWindow:
         for widget in (self.save_button, self.reload_button, self.start_button):
             widget.configure(state='disabled' if active else 'normal')
         self.stop_button.configure(state='normal' if active else 'disabled')
+        self.mouse_panel._refresh()
+
+    def _mouse_busy(self, busy: bool) -> None:
+        for widget in (self.start_button, self.save_button, self.reload_button):
+            widget.configure(state='disabled' if busy else 'normal')
+        if self.closing and not busy and not self.active:
+            self.close()
 
     def stop(self) -> None:
         if not self.active:
@@ -632,8 +642,9 @@ class AutomationWindow:
                 if not self.closing:
                     messagebox.showerror('任务停止', result['error'], parent=self.root)
             if self.closing:
-                self.root.destroy()
-                return
+                self.close()
+                if self._closed:
+                    return
             if os.name == 'nt':
                 import winsound
                 winsound.MessageBeep(winsound.MB_OK if result['code'] == 0 else winsound.MB_ICONEXCLAMATION)
@@ -661,6 +672,23 @@ class AutomationWindow:
             messagebox.showerror('无法打开日志目录', str(exc), parent=self.root)
 
     def close(self) -> None:
+        if self.mouse_panel.busy:
+            if not messagebox.askyesno('停止鼠标任务', '先停止鼠标录制 / 回放，再退出窗口？', parent=self.root):
+                return
+            self.closing = True
+            self.mouse_panel.stop()
+            return
+        if self.mouse_panel.dirty and not self.active:
+            answer = messagebox.askyesnocancel('鼠标录制尚未保存', '退出前保存鼠标录制？', parent=self.root)
+            if answer is None:
+                self.closing = False
+                return
+            if answer:
+                self.mouse_panel.save()
+                if self.mouse_panel.dirty:
+                    self.closing = False
+                    return
+            self.mouse_panel.dirty = False
         if self.active:
             if not messagebox.askyesno('停止并退出', '任务正在运行。停止自动操作、保存断点并关闭窗口？\n这不等同于停止 ChatGPT 服务器生成。', parent=self.root):
                 return
@@ -670,5 +698,6 @@ class AutomationWindow:
             if self.dirty:
                 answer = messagebox.askyesnocancel('未保存修改', '退出前保存配置？', parent=self.root)
                 if answer is None or (answer and self.save(silent=True) is None):
+                    self.closing = False
                     return
             self.root.destroy()
