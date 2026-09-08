@@ -8,6 +8,7 @@ from app.config import load_config
 from app.errors import AutomationError
 from app.state_manager import StateManager, RunLock, unfinished, timestamp
 from app.runtime import execute
+from app.paths import project_root
 
 
 def recovery_choice(config, mode: str):
@@ -47,7 +48,7 @@ def main() -> int:
         if hasattr(stream, 'reconfigure'):
             stream.reconfigure(encoding='utf-8', errors='backslashreplace')
     parser = argparse.ArgumentParser(description='ChatGPT 网页串行自动任务（手动登录）')
-    parser.add_argument('--config', type=Path, default=Path(__file__).resolve().parent / 'config.yaml')
+    parser.add_argument('--config', type=Path, default=project_root() / 'config.yaml')
     parser.add_argument('--check-config', action='store_true', help='只检查配置，不打开浏览器或发送')
     parser.add_argument('--recovery', choices=['ask', 'resume', 'restart', 'exit'], default='ask')
     args = parser.parse_args()
@@ -61,7 +62,7 @@ def main() -> int:
         if 'REPLACE_WITH_' in config.chat_url:
             raise ValueError('请先将 config.yaml 的 chat_url 改成自己的真实 ChatGPT 对话链接')
         # Project-local cache prevents a browser download into the default C: cache.
-        cache = Path(__file__).resolve().parent / '.browser-cache'
+        cache = project_root() / '.browser-cache'
         if cache.is_dir():
             os.environ.setdefault('PLAYWRIGHT_BROWSERS_PATH', str(cache))
         with RunLock(config.profile_dir / '.task.lock'):

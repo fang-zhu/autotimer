@@ -10,6 +10,7 @@ from .config import Config
 from .errors import UnsafeState
 from .runtime import execute
 from .state_manager import RunLock, unfinished, atomic_json, timestamp
+from .paths import project_root
 
 
 class QueueLogHandler(logging.Handler):
@@ -56,7 +57,7 @@ class TaskController:
     def _worker(self, config: Config, resume_path: Path | None, restart: bool) -> None:
         code, error = 1, ''
         try:
-            cache = Path(__file__).resolve().parents[1] / '.browser-cache'
+            cache = project_root() / '.browser-cache'
             if cache.is_dir():
                 os.environ.setdefault('PLAYWRIGHT_BROWSERS_PATH', str(cache))
             with RunLock(config.profile_dir / '.task.lock'):

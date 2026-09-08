@@ -55,6 +55,25 @@ python gui.py
 
 程序检测到项目内 `.browser-cache` 后会自动使用它；显式设置的 `PLAYWRIGHT_BROWSERS_PATH` 优先。浏览器关闭后登录目录仍保留。运行、日志、浏览器登录文件均默认写在项目内。
 
+## 1.1 打包为 Windows EXE
+
+项目已提供 `build_exe.ps1`，使用推荐的文件夹版打包。先完成上面的虚拟环境和依赖安装，再在项目目录执行：
+
+```powershell
+.venv\Scripts\python.exe -m pip install pyinstaller
+powershell -ExecutionPolicy Bypass -File .\build_exe.ps1
+```
+
+输出目录为 `.publish\ChatGPTWebAutomation\`，其中的 `ChatGPTWebAutomation.exe` 可以直接双击运行；目录内同时会复制 `config.example.yaml`、`prompts/`、README 和 `start_gui.bat`。首次使用时复制配置示例：
+
+```powershell
+cd .publish\ChatGPTWebAutomation
+Copy-Item config.example.yaml config.yaml
+notepad config.yaml
+```
+
+EXE 版不包含 Chromium 浏览器本体。推荐在“浏览器与登录”页使用 **连接已打开的浏览器**，配合本机已安装的 Chrome/Edge；这样不需要在另一台电脑安装 Python。若选择“程序打开专用窗口”，仍需在源项目环境执行 `playwright install chromium`，或把已安装的 `.browser-cache/` 一并放在 EXE 同级目录。登录状态、配置、日志和录制文件都保存在 EXE 文件夹旁边，请不要把这些个人文件发给别人。
+
 ## 2. 第一次登录、选择对话
 
 1. 在你平时的浏览器中手动登录 ChatGPT，新建一个普通文本对话，先发一句话，等回答结束。

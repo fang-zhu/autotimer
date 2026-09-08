@@ -5,11 +5,12 @@ import sys
 from pathlib import Path
 import tkinter as tk
 from tkinter import messagebox
+from app.paths import project_root
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description='ChatGPT 网页自动任务桌面窗口')
-    parser.add_argument('--config', type=Path, default=Path(__file__).resolve().parent/'config.yaml')
+    parser.add_argument('--config', type=Path, default=project_root()/'config.yaml')
     args = parser.parse_args()
     if sys.platform == 'win32':
         try:
