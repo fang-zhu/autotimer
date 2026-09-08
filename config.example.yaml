@@ -19,6 +19,9 @@ settings:
   login_timeout_seconds: 900
   delay_after_response_seconds: 5
   continue_on_error: false
+mouse:
+  replay_count: 1
+  replay_interval_seconds: 0
 steps:
   - id: 1
     name: "第一轮分析"

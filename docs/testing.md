@@ -1,12 +1,16 @@
 # 测试记录与人工验收
 
-验证日期：2026-09-07。测试平台：Windows，Python 3.14.6，Playwright 1.62.0，PyYAML 6.0.3，Chromium 151.0.7922.34。
+验证日期：2026-09-08。测试平台：Windows，Python 3.14.6，Playwright 1.62.0，PyYAML 6.0.3，Chromium 151.0.7922.34。
 
 ## 鼠标录制与确认弹窗分支验证
 
-分支：`feature/mouse-recorder-and-restart-dialog`。修改前备份标签为 `backup/pre-mouse-recorder-20260907`，并已保存本地 Git bundle。当前分支 `python -m unittest discover -s tests -q` 共 91 项通过（1.071 秒），编译检查和 `pip check` 通过。
+分支：`feature/mouse-recorder-and-restart-dialog`。修改前备份标签为 `backup/pre-mouse-recorder-20260907`，并已保存本地 Git bundle。回放次数/间隔和停止保存修复后，`python -m unittest discover -s tests -q` 共 103 项通过（4.229 秒），编译检查和依赖检查通过。
+
+停止保存修复新增 5 项测试：监听器 join 异常仍保留事件、stop 异常仍清理并保留事件、显示设置变化不覆盖旧录制、停止报错后保存按钮可用且能实际写入/读取文件，以及空录制给出正确的不可保存提示。它们复现了代码中的异常丢弃路径，不等于已经确认用户现场的所有失败原因；真实监听错误会记录到 `logs/mouse_recorder.log` 供进一步诊断。
 
 新增 18 项用例覆盖：无需输入文字的重跑确认、取消不启动、鼠标任务阻止 ChatGPT 任务、录制文件往返、非法文件不覆盖旧文件、时间/坐标校验、完整点击/拖动/滚轮回放、停止时释放按钮、异常时释放按钮、长等待可中断、倒计时取消保留旧录制，以及拖动中止时补充当前位置的释放事件。
+
+本次回放配置用例还验证了 1~1000 次和 0~86400 秒的边界、按配置执行多轮回放、每轮之间发出间隔进度事件、长间隔不会灌满状态队列、回放期间输入框锁定，以及 Esc 在间隔期间取消后续轮次。测试通过模块替身隔离 `pynput`，不会连接真实鼠标设备。
 
 这些测试使用模拟鼠标输入，不执行实际桌面点击；未声称已经验证全局快捷键在每一种目标软件中的有效性。请本人先在空白窗口用短录制验收，普通权限程序可能无法操作权限更高的软件窗口。鼠标录制不用于网站验证码处理。
 
@@ -14,13 +18,13 @@
 
 | 检查 | 结果 | 范围 |
 |---|---|---|
-| `python -m unittest discover -s tests -v` | 73 项通过，0 失败，0 跳过，0.881 秒 | 原有逻辑、GUI 配置/原生组件/安全停止、TXT 分步、浏览器连接规则 |
-| `python -m unittest discover -s tests_browser -p test_browser.py -v` | 9 项通过，0 失败，0 跳过，32.335 秒 | 真正 Chromium 内的本地网页交互 |
-| `python -m unittest discover -s tests_browser -p test_cdp.py -v` | 1 项通过，1.133 秒；正常 Windows 环境运行 | 已安装 Chrome 的本机连接及断开后保留进程和目标标签 |
+| `python -m unittest discover -s tests -q` | 103 项通过，0 失败，0 跳过，4.229 秒 | 原有逻辑、GUI 配置/原生组件/安全停止、TXT 分步、浏览器连接规则、鼠标回放参数 |
+| `python -m unittest discover -s tests_browser -p test_browser.py -q` | 9 项通过，0 失败，0 跳过，32.435 秒 | 真正 Chromium 内的本地网页交互 |
+| `python -m unittest discover -s tests_browser -p test_cdp.py -v` | 当前受限环境连接超时；此前普通 Windows 环境 1 项通过 | 已安装 Chrome 的本机连接及断开后保留进程和目标标签 |
 | `python main.py --check-config` | 通过 | 示例配置字段、外置中文提示词、路径与日期解析；不检验真实 URL 有效性 |
 | `python -m compileall -q gui.py main.py app tests tests_browser` | 通过 | 语法和模块编译 |
 
-共 83 项不同自动测试通过。未测量代码覆盖率。执行时使用项目 `.venv/Scripts/python.exe`，上表省略该命令前缀。CDP 测试需要本机安装 Chrome，不使用你的日常配置目录。
+共 112 项不同自动测试通过（103 个单元/窗口测试加 9 个离线 Chromium 测试）。未测量代码覆盖率。执行时使用项目 `.venv/Scripts/python.exe`，上表省略该命令前缀。CDP 测试需要本机安装 Chrome，不使用你的日常配置目录。
 
 CDP 连接在 Codex 受限执行环境中 WebSocket 已连接但无响应，首次测试超时；在正常 Windows 环境用已安装 Chrome 复测通过。测试现在给连接设置明确期限，避免诊断无限等待。若在受限沙箱中运行此测试仍超时，应在普通 PowerShell 运行；不要把沙箱失败伪装成网站登录成功。
 

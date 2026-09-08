@@ -106,3 +106,55 @@ class WindowTests(unittest.TestCase):
         with patch('app.gui.messagebox.askyesnocancel', return_value=False), patch('app.gui.messagebox.askyesno', return_value=False), patch.object(self.window.controller, 'start') as start:
             self.window.start()
         start.assert_not_called()
+
+    def test_stopped_recording_with_cleanup_error_can_be_saved(self):
+        from app.mouse_recording import MouseRecording, MouseEvent, load_recording
+        from unittest.mock import Mock
+        panel = self.window.mouse_panel
+        recording = MouseRecording((0,0,1920,1080,96),(MouseEvent(0,'move',10,20),),0)
+        panel.controller.recording = recording
+        panel.busy = True
+        panel.keyboard = Mock()
+        panel.controller.events.put(('recorded', recording))
+        panel.controller.events.put(('finished', {'kind':'record','error':'shutdown error','stopped':True,'new_recording':True}))
+        panel._poll()
+        self.assertEqual(str(panel.save_button['state']), 'normal')
+        self.assertIn('已保留 1 个事件', panel.status.get())
+        target = self.path.parent/'saved.json'
+        with patch('app.mouse_panel.filedialog.asksaveasfilename', return_value=str(target)):
+            panel.save()
+        self.assertEqual(load_recording(target), recording)
+
+    def test_empty_stop_explains_why_save_is_disabled(self):
+        panel = self.window.mouse_panel
+        panel.controller.events.put(('finished', {'kind':'record','error':'','stopped':True,'new_recording':False}))
+        panel._poll()
+        self.assertEqual(str(panel.save_button['state']), 'disabled')
+        self.assertIn('没有可保存', panel.status.get())
+
+    def test_replay_options_are_saved_in_config(self):
+        panel = self.window.mouse_panel
+        panel.replay_count.set('3')
+        panel.replay_interval.set('5.5')
+        config = self.window.save(silent=True)
+        self.assertEqual(config.mouse.replay_count, 3)
+        self.assertEqual(config.mouse.replay_interval_seconds, 5.5)
+
+    def test_invalid_replay_options_block_start(self):
+        panel = self.window.mouse_panel
+        panel.replay_count.set('0')
+        with patch('app.gui.messagebox.showerror') as error, patch.object(self.window.controller, 'start') as start:
+            self.window.start()
+        error.assert_called_once()
+        start.assert_not_called()
+
+    def test_replay_options_lock_while_mouse_task_is_busy(self):
+        panel = self.window.mouse_panel
+        panel.busy = True
+        panel._refresh()
+        self.assertEqual(str(panel.count_entry['state']), 'disabled')
+        self.assertEqual(str(panel.interval_entry['state']), 'disabled')
+        panel.busy = False
+        panel._refresh()
+        self.assertEqual(str(panel.count_entry['state']), 'normal')
+        self.assertEqual(str(panel.interval_entry['state']), 'normal')

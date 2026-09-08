@@ -31,6 +31,12 @@ class Step:
 
 
 @dataclass(frozen=True)
+class MouseSettings:
+    replay_count: int = 1
+    replay_interval_seconds: float = 0
+
+
+@dataclass(frozen=True)
 class Config:
     task_name: str
     chat_url: str
@@ -43,6 +49,7 @@ class Config:
     browser_mode: str = 'persistent'
     cdp_url: str = 'http://127.0.0.1:9222'
     browser_channel: str = 'chrome'
+    mouse: MouseSettings = MouseSettings()
 
     @property
     def fingerprint(self) -> str:
@@ -77,7 +84,7 @@ def parse_config(data: object, path: Path) -> Config:
     path = path.resolve()
     if not isinstance(data, dict):
         raise ValueError('配置必须是 YAML 对象')
-    allowed = {'task_name', 'chat_url', 'start_time', 'start_immediately', 'browser', 'settings', 'steps', 'log_dir'}
+    allowed = {'task_name', 'chat_url', 'start_time', 'start_immediately', 'browser', 'settings', 'steps', 'log_dir', 'mouse'}
     if set(data) - allowed:
         raise ValueError(f'未知配置字段: {set(data) - allowed}')
     url = str(data.get('chat_url', '')).strip()
@@ -107,6 +114,16 @@ def parse_config(data: object, path: Path) -> Config:
         else:
             positive(value, key, key == 'delay_after_response_seconds')
     settings = Settings(**defaults)
+    mouse_values = data.get('mouse', {})
+    if not isinstance(mouse_values, dict) or set(mouse_values) - {'replay_count', 'replay_interval_seconds'}:
+        raise ValueError('mouse 字段错误')
+    replay_count = mouse_values.get('replay_count', 1)
+    if type(replay_count) is not int or not 1 <= replay_count <= 1000:
+        raise ValueError('mouse.replay_count 必须是 1 到 1000 的整数')
+    replay_interval = positive(mouse_values.get('replay_interval_seconds', 0), 'mouse.replay_interval_seconds', True)
+    if replay_interval > 86400:
+        raise ValueError('mouse.replay_interval_seconds 不能超过 86400 秒')
+    mouse = MouseSettings(replay_count, replay_interval)
     browser = data.get('browser', {})
     if not isinstance(browser, dict) or set(browser) - {'headless', 'use_persistent_profile', 'profile_dir', 'mode', 'cdp_url', 'channel'}:
         raise ValueError('browser 字段错误')
@@ -151,4 +168,4 @@ def parse_config(data: object, path: Path) -> Config:
                           positive(item.get('delay_after_response_seconds', settings.delay_after_response_seconds), 'delay', True)))
     return Config(str(data.get('task_name', 'GPT自动任务')), url, start, immediate,
                   resolve(browser.get('profile_dir', 'browser_data')),
-                  resolve(data.get('log_dir', 'logs')), settings, steps, mode, endpoint, channel)
+                  resolve(data.get('log_dir', 'logs')), settings, steps, mode, endpoint, channel, mouse)

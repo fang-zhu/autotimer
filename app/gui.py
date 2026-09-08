@@ -160,7 +160,9 @@ class AutomationWindow:
         self._build_prompts(prompts_tab)
         self._build_browser(browser_tab)
         self._build_settings(settings_tab)
-        self.mouse_panel = MousePanel(notebook, self.root, self.path.parent/'recordings', self._mouse_busy, lambda: self.active)
+        self.mouse_panel = MousePanel(notebook, self.root, self.path.parent/'recordings', self._mouse_busy, lambda: self.active,
+                                      self.config.mouse.replay_count, self.config.mouse.replay_interval_seconds,
+                                      self._mark_dirty)
         notebook.add(self.mouse_panel, text='鼠标录制')
         status = ttk.Frame(shell)
         status.grid(row=4, column=0, sticky='ew', pady=(12, 5))
@@ -488,6 +490,8 @@ class AutomationWindow:
             except ValueError as exc:
                 raise ValueError(f'「{label}」请填写有效数字') from exc
         data['settings']['continue_on_error'] = self.vars['continue_on_error'].get()
+        count, interval = self.mouse_panel._read_replay_options()
+        data['mouse'] = {'replay_count': count, 'replay_interval_seconds': interval}
         data['steps'] = [step.to_mapping() for step in self.steps]
         return data
 
@@ -526,6 +530,8 @@ class AutomationWindow:
             self.vars['browser_mode'].set('连接已打开的浏览器' if config.browser_mode == 'cdp' else '程序打开专用窗口')
             self.vars['browser_channel'].set('Edge' if config.browser_channel == 'msedge' else 'Chrome')
             self.vars['cdp_url'].set(config.cdp_url)
+            self.mouse_panel.replay_count.set(str(config.mouse.replay_count))
+            self.mouse_panel.replay_interval.set(str(config.mouse.replay_interval_seconds).rstrip('0').rstrip('.') if config.mouse.replay_interval_seconds else '0')
             self.vars['start_immediately'].set(config.start_immediately)
             for key, value in asdict(config.settings).items():
                 self.vars[key].set(value)
